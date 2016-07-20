@@ -4,7 +4,7 @@ from client import app_utils
 import re
 from semantic.numbers import NumberService
 
-WORDS = ["NEWS", "YES", "NO", "FIRST", "SECOND", "THIRD"]
+WORDS = ["HEADLINES", "YES", "NO", "FIRST", "SECOND", "THIRD"]
 
 PRIORITY = 3
 
@@ -128,4 +128,4 @@ def isValid(text):
         Arguments:
         text -- user-input, typically transcribed speech
     """
-    return bool(re.search(r'\b(news|headline)\b', text, re.IGNORECASE))
+    return bool(re.search(r'\b(headlines)\b', text, re.IGNORECASE))

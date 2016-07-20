@@ -15,7 +15,7 @@ from client.conversation import Conversation
 # Add jasperpath.LIB_PATH to sys.path
 sys.path.append(jasperpath.LIB_PATH)
 
-parser = argparse.ArgumentParser(description='Jasper Voice Control Center')
+parser = argparse.ArgumentParser(description='Athena Voice Control Center')
 parser.add_argument('--local', action='store_true',
                     help='Use text input instead of a real microphone')
 parser.add_argument('--no-network-check', action='store_true',
@@ -23,6 +23,7 @@ parser.add_argument('--no-network-check', action='store_true',
 parser.add_argument('--diagnose', action='store_true',
                     help='Run diagnose and exit')
 parser.add_argument('--debug', action='store_true', help='Show debug messages')
+parser.add_argument('--logfile', help='Log to the named file.')
 args = parser.parse_args()
 
 if args.local:
@@ -46,7 +47,7 @@ class Jasper(object):
 
         # Check if config dir is writable
         if not os.access(jasperpath.CONFIG_PATH, os.W_OK):
-            self._logger.critical("Config dir %s is not writable. Jasper " +
+            self._logger.critical("Config dir %s is not writable. Athena " +
                                   "won't work correctly.",
                                   jasperpath.CONFIG_PATH)
 
@@ -114,17 +115,23 @@ class Jasper(object):
             salutation = "How can I be of service?"
         self.mic.say(salutation)
 
-        conversation = Conversation("JASPER", self.mic, self.config)
+        conversation = Conversation("ATHENA", self.mic, self.config)
         conversation.handleForever()
 
 if __name__ == "__main__":
 
     print("*******************************************************")
+    print("*             ATHENA - THE TALKING COMPUTER           *")
+    print("*                 By Gijsbert ter Horst               *")
+    print("*                      is actually                    *")
     print("*             JASPER - THE TALKING COMPUTER           *")
     print("* (c) 2015 Shubhro Saha, Charlie Marsh & Jan Holthuis *")
     print("*******************************************************")
 
-    logging.basicConfig()
+    if args.logfile:
+    	logging.basicConfig(filename = args.logfile)
+    else:
+        logging.basicConfig()
     logger = logging.getLogger()
     logger.getChild("client.stt").setLevel(logging.INFO)
 
@@ -132,7 +139,7 @@ if __name__ == "__main__":
         logger.setLevel(logging.DEBUG)
 
     if not args.no_network_check and not diagnose.check_network_connection():
-        logger.warning("Network not connected. This may prevent Jasper from " +
+        logger.warning("Network not connected. This may prevent Athena from " +
                        "running properly.")
 
     if args.diagnose:

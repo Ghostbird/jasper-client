@@ -30,10 +30,13 @@ def replaceAcronyms(text):
 
     for w in acronyms:
         text = text.replace(w, parseDirections(w))
-
-    text = re.sub(r'(\b\d+)F(\b)', '\g<1> Fahrenheit\g<2>', text)
+    text = text.replace('High:','With maxima, around ')
+    text = re.sub(r'(\b\d+) &deg; F(\b)', '\g<1> degrees Fahrenheit\g<2>', text)
+    text = re.sub(r'(\b\d+) &deg; C(\b)', '\g<1> degrees Celsius\g<2>', text)
     text = re.sub(r'(\b)mph(\b)', '\g<1>miles per hour\g<2>', text)
+    text = re.sub(r'(\b)kmh(\b)', '\g<1>kilometres per hour\g<2>', text)
     text = re.sub(r'(\b)in\.', '\g<1>inches', text)
+    text = re.sub(r'(\b)cm\.', '\g<1>centimetre', text)
 
     return text
 
@@ -155,6 +158,7 @@ def handle(text, mic, profile):
 
     if output:
         output = replaceAcronyms(output)
+        print output
         mic.say(output)
     else:
         mic.say(

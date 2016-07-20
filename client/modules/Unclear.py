@@ -2,7 +2,7 @@
 from sys import maxint
 import random
 
-WORDS = []
+WORDS = ['PLEASE', 'TELL', 'ME', 'ABOUT']
 
 PRIORITY = -(maxint + 1)
 

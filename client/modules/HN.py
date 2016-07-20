@@ -119,7 +119,7 @@ def handle(text, mic, profile):
         else:
             mic.say("OK I will not send any articles")
 
-    if not profile['prefers_email'] and profile['phone_number']:
+    if ('prefers_email' not in profile or not profile['prefers_email']) and profile['phone_number']:
         mic.say("Here are some front-page articles. " +
                 all_titles + ". Would you like me to send you these? " +
                 "If so, which?")

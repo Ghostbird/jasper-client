@@ -6,7 +6,7 @@ import mpd
 from client.mic import Mic
 
 # Standard module stuff
-WORDS = ["MUSIC", "SPOTIFY"]
+WORDS = ["MUSIC"]
 
 
 def handle(text, mic, profile):
@@ -32,15 +32,14 @@ def handle(text, mic, profile):
     try:
         mpdwrapper = MPDWrapper(**kwargs)
     except:
-        logger.error("Couldn't connect to MPD server", exc_info=True)
-        mic.say("I'm sorry. It seems that Spotify is not enabled. Please " +
-                "read the documentation to learn how to configure Spotify.")
+        logger.error("Couldn't connect to the MPD server", exc_info=True)
+        mic.say("I'm sorry. It seems that your MPD server is not enabled.")
         return
 
-    mic.say("Please give me a moment, I'm loading your Spotify playlists.")
+    mic.say("Please give me a moment, I'm loading your music.")
 
     # FIXME: Make this configurable
-    persona = 'JASPER'
+    persona = 'ATHENA'
 
     logger.debug("Starting music mode")
     music_mode = MusicMode(persona, mic, mpdwrapper)
@@ -73,10 +72,8 @@ class MusicMode(object):
         phrases = ["STOP", "CLOSE", "PLAY", "PAUSE", "NEXT", "PREVIOUS",
                    "LOUDER", "SOFTER", "LOWER", "HIGHER", "VOLUME",
                    "PLAYLIST"]
-        phrases.extend(self.music.get_soup_playlist())
-
+        #phrases.extend(self.music.get_soup())
         music_stt_engine = mic.active_stt_engine.get_instance('music', phrases)
-
         self.mic = Mic(mic.speaker,
                        mic.passive_stt_engine,
                        music_stt_engine)
@@ -89,28 +86,30 @@ class MusicMode(object):
         if "PLAYLIST" in command:
             command = command.replace("PLAYLIST", "")
         elif "STOP" in command:
-            self.mic.say("Stopping music")
-            self.music.stop()
+            if self.music.status()['state'] != 'stop':
+                self.music.stop()
+                self.mic.say("Stopped music")
             return
         elif "PLAY" in command:
-            self.mic.say("Playing %s" % self.music.current_song())
-            self.music.play()
+            if self.music.status()['state'] == 'pause':
+                self.mic.say('Resuming {}'.format(self.music.current_song()))
+                self.music.unpause()
+            elif self.music.status()['state'] == 'stop':
+               self.mic.say("Playing %s" % self.music.current_song())
+               self.music.play()
             return
         elif "PAUSE" in command:
-            self.mic.say("Pausing music")
-            # not pause because would need a way to keep track of pause/play
-            # state
-            self.music.stop()
+            if self.music.status()['state'] == 'pause':
+               self.music.pause()
+               self.mic.say('Paused music')
             return
         elif any(ext in command for ext in ["LOUDER", "HIGHER"]):
             self.mic.say("Louder")
             self.music.volume(interval=10)
-            self.music.play()
             return
         elif any(ext in command for ext in ["SOFTER", "LOWER"]):
             self.mic.say("Softer")
             self.music.volume(interval=-10)
-            self.music.play()
             return
         elif "NEXT" in command:
             self.mic.say("Next song")
@@ -125,32 +124,31 @@ class MusicMode(object):
             self.mic.say("Playing %s" % self.music.current_song())
             return
 
-        # SONG SELECTION... requires long-loading dictionary and language model
-        # songs = self.music.fuzzy_songs(query = command.replace("PLAY", ""))
-        # if songs:
-        #     self.mic.say("Found songs")
-        #     self.music.play(songs = songs)
+        #SONG SELECTION... requires long-loading dictionary and language model
+        #songs = self.music.fuzzy_songs(query = command.replace("PLAY", ""))
+        #if songs:
+        #    self.mic.say("Found songs")
+        #    self.music.play(songs = songs)
+        #    print("SONG RESULTS")
+        #    print("============")
+        #    for song in songs:
+        #        print("Song: %s Artist: %s" % (song.title, song.artist))
 
-        #     print("SONG RESULTS")
-        #     print("============")
-        #     for song in songs:
-        #         print("Song: %s Artist: %s" % (song.title, song.artist))
+        #    self.mic.say("Playing %s" % self.music.current_song())
 
-        #     self.mic.say("Playing %s" % self.music.current_song())
-
-        # else:
-        #     self.mic.say("No songs found. Resuming current song.")
-        #     self.music.play()
+        #else:
+        #    self.mic.say("No songs found. Resuming current song.")
+        #    self.music.play()
 
         # PLAYLIST SELECTION
-        playlists = self.music.fuzzy_playlists(query=command)
-        if playlists:
-            self.mic.say("Loading playlist %s" % playlists[0])
-            self.music.play(playlist_name=playlists[0])
-            self.mic.say("Playing %s" % self.music.current_song())
-        else:
-            self.mic.say("No playlists found. Resuming current song.")
-            self.music.play()
+        #playlists = self.music.fuzzy_playlists(query=command)
+        #if playlists:
+        #    self.mic.say("Loading playlist %s" % playlists[0])
+        #    self.music.play(playlist_name=playlists[0])
+        #    self.mic.say("Playing %s" % self.music.current_song())
+        #else:
+        #    self.mic.say("No playlists found. Resuming current song.")
+        #    self.music.play()
 
         return
 
@@ -160,25 +158,28 @@ class MusicMode(object):
         self.mic.say("Playing %s" % self.music.current_song())
 
         while True:
-
+            paused = False
             threshold, transcribed = self.mic.passiveListen(self.persona)
 
             if not transcribed or not threshold:
                 self._logger.info("Nothing has been said or transcribed.")
                 continue
 
-            self.music.pause()
+            if self.music.status()['state'] == 'play':
+                self.music.pause()
+                paused = True
 
             input = self.mic.activeListen(MUSIC=True)
 
             if input:
                 if "close" in input.lower():
-                    self.mic.say("Closing Spotify")
+                    self.mic.say("Leaving music mode.")
                     return
                 self.delegateInput(input)
             else:
                 self.mic.say("Pardon?")
-                self.music.play()
+                if paused:
+                    self.music.unpause()
 
 
 def reconnect(func, *default_args, **default_kwargs):
@@ -196,7 +197,7 @@ def reconnect(func, *default_args, **default_kwargs):
         try:
             return func(self, *default_args, **default_kwargs)
         except:
-            self.client = mpd.MPDClient()
+            self.client = mpd.MPDClient(use_unicode=True)
             self.client.timeout = None
             self.client.idletimeout = None
             self.client.connect(self.server, self.port)
@@ -207,9 +208,9 @@ def reconnect(func, *default_args, **default_kwargs):
 
 
 class Song(object):
-    def __init__(self, id, title, artist, album):
+    def __init__(self, file, title, artist, album):
 
-        self.id = id
+        self.file = file
         self.title = title
         self.artist = artist
         self.album = album
@@ -228,32 +229,17 @@ class MPDWrapper(object):
         self.client.timeout = None
         self.client.idletimeout = None
         self.client.connect(self.server, self.port)
-
-        # gather playlists
-        self.playlists = [x["playlist"] for x in self.client.listplaylists()]
-
-        # gather songs
-        self.client.clear()
-        for playlist in self.playlists:
-            self.client.load(playlist)
-
-        self.songs = []  # may have duplicates
-        # capitalized strings
-        self.song_titles = []
-        self.song_artists = []
-
-        soup = self.client.playlist()
-        for i in range(0, len(soup) / 10):
-            index = i * 10
-            id = soup[index].strip()
-            title = soup[index + 3].strip().upper()
-            artist = soup[index + 2].strip().upper()
-            album = soup[index + 4].strip().upper()
-
-            self.songs.append(Song(id, title, artist, album))
-
-            self.song_titles.append(title)
-            self.song_artists.append(artist)
+        self.songs = []
+        self.playlists = self.client.listplaylists()
+        for item in self.client.listallinfo():
+            if 'file' in item:
+                file = item['file']
+                title = item['title'] if 'title' in item else ''
+                if isinstance(title, list):
+                    title = ' - '.join(title)
+                artist = item['artist'] if 'artists' in item else ''
+                album = item['album'] if 'album' in item else '' 
+                self.songs.append(Song(file, title, artist, album))
 
     @reconnect
     def play(self, songs=False, playlist_name=False):
@@ -267,8 +253,8 @@ class MPDWrapper(object):
         if songs:
             self.client.clear()
             for song in songs:
-                try:  # for some reason, certain ids don't work
-                    self.client.add(song.id)
+                try:
+                    self.client.add(song.file)
                 except:
                     pass
 
@@ -280,25 +266,38 @@ class MPDWrapper(object):
 
     @reconnect
     def current_song(self):
-        item = self.client.playlistinfo(int(self.client.status()["song"]))[0]
-        result = "%s by %s" % (item["title"], item["artist"])
+        status = self.client.status()
+        result = 'no song'
+        if 'song' in status:
+            item = self.client.playlistinfo(int(status["song"]))[0]
+            result = "%s, by, %s" % (item["title"], item["artist"])
         return result
 
     @reconnect
     def volume(self, level=None, interval=None):
 
-        if level:
-            self.client.setvol(int(level))
+        if level is not None:
+            self.client.setvol(level)
             return
 
-        if interval:
-            level = int(self.client.status()['volume']) + int(interval)
-            self.client.setvol(int(level))
+        if interval is not None:
+            level = int(self.client.status()['volume']) + interval
+            level = max(min(level, 100), 0)
+            logging.debug('Setting volume to level: {}'.format(level))
+            self.client.setvol(level)
             return
 
     @reconnect
     def pause(self):
-        self.client.pause()
+        self.client.pause(1)
+
+    @reconnect
+    def unpause(self):
+        self.client.pause(0)
+
+    @reconnect
+    def status(self):
+        return self.client.status()
 
     @reconnect
     def stop(self):
@@ -322,8 +321,8 @@ class MPDWrapper(object):
         soup = []
 
         for song in self.songs:
-            song_words = song.title.split(" ")
-            artist_words = song.artist.split(" ")
+            song_words = song.title.split(' ')
+            artist_words = song.artist.split(' ')
             soup.extend(song_words)
             soup.extend(artist_words)
 
@@ -386,8 +385,7 @@ class MPDWrapper(object):
 
         # if query is beautifully matched, then forget about everything else
         strict_priority_title = [x for x in matched_song_titles if x == query]
-        strict_priority_artists = [
-            x for x in matched_song_artists if x == query]
+        strict_priority_artists = [x for x in matched_song_artists if x == query]
 
         if strict_priority_title:
             matched_song_titles = strict_priority_title

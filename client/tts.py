@@ -73,7 +73,7 @@ class AbstractTTSEngine(object):
     def play(self, filename):
         # FIXME: Use platform-independent audio-output here
         # See issue jasperproject/jasper-client#188
-        cmd = ['aplay', '-D', 'plughw:1,0', str(filename)]
+        cmd = ['aplay', str(filename)]
         self._logger.debug('Executing %s', ' '.join([pipes.quote(arg)
                                                      for arg in cmd]))
         with tempfile.TemporaryFile() as f:
@@ -173,10 +173,9 @@ class EspeakTTS(AbstractTTSEngine):
     def say(self, phrase):
         self._logger.debug("Saying '%s' with '%s'", phrase, self.SLUG)
         cmd = ['espeak', '-v', self.voice,
-                         '-p', self.pitch_adjustment,
-                         '-s', self.words_per_minute,
+                         '-p', str(self.pitch_adjustment),
+                         '-s', str(self.words_per_minute),
                          phrase]
-        cmd = [str(x) for x in cmd]
         self._logger.debug('Executing %s', ' '.join([pipes.quote(arg)
                                                      for arg in cmd]))
         p = subprocess.Popen(cmd)

@@ -77,6 +77,8 @@ class MusicMode(object):
         self.mic = Mic(mic.speaker,
                        mic.passive_stt_engine,
                        music_stt_engine)
+        # Track whether we've paused the music to listen.
+        self.temppaused = False
 
     def delegateInput(self, input):
 
@@ -95,13 +97,16 @@ class MusicMode(object):
                 self.mic.say('Resuming {}'.format(self.music.current_song()))
                 self.music.unpause()
             elif self.music.status()['state'] == 'stop':
-               self.mic.say("Playing %s" % self.music.current_song())
                self.music.play()
+               self.mic.say("Playing %s" % self.music.current_song())
             return
         elif "PAUSE" in command:
-            if self.music.status()['state'] == 'pause':
-               self.music.pause()
-               self.mic.say('Paused music')
+            if self.music.status()['state'] != 'stop':
+                self.mic.say('Paused music')
+                # Otherwise the system will unpause after listening.
+                self.temppaused = False
+            else:
+                self.mic.say('Music is already stopped.')
             return
         elif any(ext in command for ext in ["LOUDER", "HIGHER"]):
             self.mic.say("Louder")
@@ -158,7 +163,7 @@ class MusicMode(object):
         self.mic.say("Playing %s" % self.music.current_song())
 
         while True:
-            paused = False
+            self.temppaused = False
             threshold, transcribed = self.mic.passiveListen(self.persona)
 
             if not transcribed or not threshold:
@@ -167,7 +172,7 @@ class MusicMode(object):
 
             if self.music.status()['state'] == 'play':
                 self.music.pause()
-                paused = True
+                self.temppaused = True
 
             input = self.mic.activeListen(MUSIC=True)
 
@@ -178,8 +183,8 @@ class MusicMode(object):
                 self.delegateInput(input)
             else:
                 self.mic.say("Pardon?")
-                if paused:
-                    self.music.unpause()
+            if self.temppaused:
+                self.music.unpause()
 
 
 def reconnect(func, *default_args, **default_kwargs):
